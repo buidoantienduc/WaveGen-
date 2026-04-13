@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WaveGen Ultimate V4.2 - Audio & Pause Fixed</title>
+    <title>WaveGen Ultimate V4.2 - Audio, Pause & Mobile Fixed</title>
     
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
@@ -23,8 +23,10 @@
         }
 
         body { margin: 0; font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; transition: 0.3s; }
-        .sidebar { width: 420px; background: var(--panel); padding: 20px; border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        .main-content { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 15px; position: relative; }
+        
+        /* Đã thêm box-sizing để padding không làm tràn khung */
+        .sidebar { width: 420px; background: var(--panel); padding: 20px; border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; gap: 15px; box-sizing: border-box; }
+        .main-content { flex: 1; display: flex; flex-direction: column; padding: 20px; gap: 15px; position: relative; box-sizing: border-box; }
         
         button { padding: 10px; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; color: white; background: var(--primary); transition: 0.2s; }
         button:hover { opacity: 0.8; }
@@ -41,12 +43,13 @@
         select, textarea { width: 100%; padding: 8px; border-radius: 4px; background: var(--panel); color: var(--text); border: 1px solid var(--border); box-sizing: border-box; font-family: inherit;}
         textarea { resize: vertical; min-height: 60px; }
         
-        .canvas-wrapper { flex: 1; border-radius: 12px; border: 2px solid var(--border); position: relative; background: #000; overflow: hidden; cursor: crosshair; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);}
+        .canvas-wrapper { flex: 1; border-radius: 12px; border: 2px solid var(--border); position: relative; background: #000; overflow: hidden; cursor: crosshair; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); min-height: 250px; }
         canvas { width: 100%; height: 100%; display: block; }
         #tooltip { position: absolute; background: var(--tooltip); color: var(--text); padding: 8px 12px; border-radius: 6px; font-family: monospace; font-size: 14px; pointer-events: none; display: none; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 10; transform: translate(15px, 15px);}
         
-        .dashboard { display: flex; gap: 20px; padding: 15px; background: var(--panel); border-radius: 8px; border: 1px solid var(--border); font-family: monospace; font-size: 15px;}
-        .dash-item { flex: 1; text-align: center; background: var(--bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border); }
+        /* Đã thêm flex-wrap để tự động rớt dòng nếu thiếu chỗ */
+        .dashboard { display: flex; flex-wrap: wrap; gap: 15px; padding: 15px; background: var(--panel); border-radius: 8px; border: 1px solid var(--border); font-family: monospace; font-size: 15px;}
+        .dash-item { flex: 1; min-width: 90px; text-align: center; background: var(--bg); padding: 10px; border-radius: 6px; border: 1px solid var(--border); }
         .dash-val { font-size: 20px; font-weight: bold; color: var(--math-color); display: block; margin-top: 5px;}
 
         .feedback-history { background: var(--bg); padding: 10px; border-radius: 6px; font-size: 12px; max-height: 150px; overflow-y: auto; border: 1px solid var(--border); margin-top: 10px;}
@@ -68,6 +71,42 @@
         .guide-section ul { margin: 0; padding-left: 20px; line-height: 1.6; font-size: 14.5px;}
         .guide-section li { margin-bottom: 6px; }
         .highlight-text { color: var(--math-color); font-weight: bold; }
+
+        /* ========================================= */
+        /* CSS DÀNH RIÊNG CHO ĐIỆN THOẠI (RESPONSIVE) */
+        /* ========================================= */
+        @media (max-width: 768px) {
+            body { 
+                flex-direction: column; 
+                overflow-y: auto; /* Cho phép lướt cuộn trên điện thoại */
+                height: auto; 
+            }
+            .sidebar { 
+                width: 100%; /* Phóng to 100% màn hình */
+                order: 2; /* Đẩy bảng điều khiển xuống dưới */
+                border-right: none; 
+                border-top: 1px solid var(--border);
+                overflow-y: visible; /* Bỏ cuộn riêng của sidebar */
+            }
+            .main-content { 
+                width: 100%; 
+                order: 1; /* Đưa đồ thị lên trên cùng */
+                flex: none; 
+                height: 55vh; /* Đồ thị chiếm 55% chiều cao màn hình */
+            }
+            .dashboard {
+                font-size: 13px;
+                padding: 10px;
+                gap: 10px;
+            }
+            .dash-val {
+                font-size: 16px;
+            }
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -423,14 +462,14 @@
         };
         window.addEventListener('resize', resizeCanvas); 
 
-        // Đoạn code tooltip
+        // Đoạn code tooltip (Thêm hỗ trợ chạm trên điện thoại)
         const wrapper = document.getElementById('canvas-wrapper');
         const tooltip = document.getElementById('tooltip');
         
-        wrapper.addEventListener('mousemove', (e) => {
+        const updateTooltip = (clientX, clientY) => {
             const rect = wrapper.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
             
             const height = canvas.height;
             const centerY = height * 0.7;
@@ -442,11 +481,16 @@
             tooltip.style.left = (x + 15) + 'px';
             tooltip.style.top = (y + 15) + 'px';
             tooltip.innerHTML = `Mức áp: <b>${voltage} V</b>`;
-        });
+        };
+
+        wrapper.addEventListener('mousemove', (e) => updateTooltip(e.clientX, e.clientY));
+        wrapper.addEventListener('touchmove', (e) => {
+            e.preventDefault(); // Tránh cuộn màn hình khi lướt trên đồ thị
+            updateTooltip(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: false });
         
-        wrapper.addEventListener('mouseleave', () => {
-            tooltip.style.display = 'none';
-        });
+        wrapper.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+        wrapper.addEventListener('touchend', () => tooltip.style.display = 'none');
 
         // Vòng lặp vẽ đồ thị
         const draw = () => {
@@ -576,14 +620,13 @@
             showToast("Đã tải file CSV cấu hình tín hiệu!");
         };
 
-        // --- HỆ THỐNG ÂM THANH (Audio API) ĐÃ FIX NHIỄU TRẮNG ---
+        // --- HỆ THỐNG ÂM THANH (Audio API) ---
         let audioCtx;
         let audioNodes = {}; 
         let isAudioPlaying = false;
 
-        // Hàm tạo bộ đệm nhiễu trắng (White Noise)
         const createWhiteNoiseBuffer = (ctx) => {
-            const bufferSize = ctx.sampleRate * 2; // 2 giây
+            const bufferSize = ctx.sampleRate * 2; 
             const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
             const output = buffer.getChannelData(0);
             for (let i = 0; i < bufferSize; i++) {
@@ -630,14 +673,12 @@
                 if (!audioNodes[sig.id]) {
                     const nodes = {};
 
-                    // Nguồn phát sóng
                     nodes.osc = audioCtx.createOscillator();
                     nodes.oscGain = audioCtx.createGain();
                     nodes.osc.connect(nodes.oscGain);
                     nodes.oscGain.connect(audioCtx.destination);
                     nodes.osc.start();
 
-                    // Nguồn phát nhiễu
                     nodes.noiseSrc = audioCtx.createBufferSource();
                     nodes.noiseSrc.buffer = createWhiteNoiseBuffer(audioCtx);
                     nodes.noiseSrc.loop = true; 
@@ -656,11 +697,9 @@
                 } else {
                     nodes.osc.type = (sig.type === 'pulse') ? 'square' : sig.type;
                     nodes.osc.frequency.setValueAtTime(sig.f, audioCtx.currentTime);
-                    // Điều chỉnh âm lượng theo biên độ A (Scale nhỏ để bảo vệ tai)
                     nodes.oscGain.gain.setValueAtTime((sig.a / 5) * 0.3, audioCtx.currentTime);
                 }
 
-                // Điều chỉnh âm lượng nhiễu theo thanh kéo Noise
                 nodes.noiseGain.gain.setValueAtTime((sig.noise / 2) * 0.2, audioCtx.currentTime);
             });
         };
@@ -671,7 +710,7 @@
             addSignal();
             listenToGlobalFeedbacks();
             draw();
-            showToast("Chào mừng đến với WaveGen V4.2 - Audio Fix");
+            showToast("Đã cập nhật giao diện Mobile!");
         };
     </script>
 </body>
